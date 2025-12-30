@@ -1,0 +1,171 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "JANI HUB",
+   LoadingTitle = "👑JANI HUB👑",
+   LoadingSubtitle = "by ??? and Larky",
+   ConfigurationSaving = { Enabled = false },
+   KeySystem = true, -- Set this to true to use their Key System
+   KeySettings = {
+      Title = "JANI HUB | Key System",
+      Subtitle = "Key System",
+      Note = "The Key is: FLICKHACK",
+      FileName = "JaniHubKey",
+      SaveKey = true,
+      GrabKeyFromSite = false,
+      Key = {"FLICKHACK"} -- Your Key
+   }
+})
+
+-- Variables
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local AimbotEnabled = false
+local EspEnabled = false
+local TeamCheck = false
+local InvWallsEnabled = false
+local FOVRadius = 150
+
+-- Create FOV Circle
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Thickness = 1
+FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+FOVCircle.Transparency = 1
+FOVCircle.Visible = false
+
+-- --- Functions ---
+
+local function IsVisible(TargetPart)
+    if not LocalPlayer.Character then return false end
+    local Params = RaycastParams.new()
+    Params.FilterType = Enum.RaycastFilterType.Exclude
+    Params.FilterDescendantsInstances = {LocalPlayer.Character, TargetPart.Parent}
+    local Direction = (TargetPart.Position - Camera.CFrame.Position).Unit * (TargetPart.Position - Camera.CFrame.Position).Magnitude
+    local result = workspace:Raycast(Camera.CFrame.Position, Direction, Params)
+    return result == nil
+end
+
+local function GetClosestPlayer()
+    local MaximumDistance = FOVRadius
+    local Target = nil
+    local ScreenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("Head") and v.Character.Humanoid.Health > 0 then
+            if TeamCheck and v.Team == LocalPlayer.Team then continue end
+            local ScreenPoint, OnScreen = Camera:WorldToScreenPoint(v.Character.Head.Position)
+            if OnScreen then
+                local VectorDistance = (ScreenCenter - Vector2.new(ScreenPoint.X, ScreenPoint.Y)).Magnitude
+                if VectorDistance < MaximumDistance then
+                    if IsVisible(v.Character.Head) then
+                        Target = v
+                        MaximumDistance = VectorDistance
+                    end
+                end
+            end
+        end
+    end
+    return Target
+end
+
+-- --- Main Loops ---
+
+RunService.RenderStepped:Connect(function()
+    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    FOVCircle.Radius = FOVRadius
+    FOVCircle.Visible = AimbotEnabled
+
+    if AimbotEnabled then
+        local Target = GetClosestPlayer()
+        if Target and Target.Character and Target.Character:FindFirstChild("Head") then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, Target.Character.Head.Position)
+        end
+    end
+end)
+
+-- ESP Function
+local function UpdateESP()
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= LocalPlayer and v.Character then
+            local highlight = v.Character:FindFirstChild("JaniHighlight")
+            if EspEnabled then
+                if TeamCheck and v.Team == LocalPlayer.Team then
+                    if highlight then highlight:Destroy() end
+                    continue
+                end
+                if not highlight then
+                    highlight = Instance.new("Highlight")
+                    highlight.Name = "JaniHighlight"
+                    highlight.Parent = v.Character
+                end
+                highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                highlight.FillColor = Color3.fromRGB(255, 0, 0)
+            elseif highlight then
+                highlight:Destroy()
+            end
+        end
+    end
+end
+
+task.spawn(function()
+    while task.wait(0.5) do UpdateESP() end
+end)
+
+-- --- UI Tabs ---
+
+local MainTab = Window:CreateTab("Combat", 4483362458)
+local VisualTab = Window:CreateTab("Visuals & World", 4483362458)
+
+MainTab:CreateToggle({
+   Name = "Enable Aimbot",
+   CurrentValue = false,
+   Callback = function(Value) AimbotEnabled = Value end,
+})
+
+MainTab:CreateSlider({
+   Name = "FOV Size",
+   Range = {0, 800},
+   Increment = 10,
+   CurrentValue = 150,
+   Callback = function(Value) FOVRadius = Value end,
+})
+
+MainTab:CreateToggle({
+   Name = "Team Check",
+   CurrentValue = false,
+   Callback = function(Value) TeamCheck = Value end,
+})
+
+VisualTab:CreateToggle({
+   Name = "ESP",
+   CurrentValue = false,
+   Callback = function(Value) EspEnabled = Value; UpdateESP() end,
+})
+
+VisualTab:CreateToggle({
+   Name = "Inv Walls (See/Walk Through)",
+   CurrentValue = false,
+   Callback = function(Value)
+      InvWallsEnabled = Value
+      for _, obj in pairs(workspace:GetDescendants()) do
+         if obj:IsA("BasePart") and not obj:IsA("Terrain") then
+            -- Protect the floor/ground based on common names
+            local name = obj.Name:lower()
+            if name ~= "baseplate" and name ~= "floor" and name ~= "ground" then
+               if InvWallsEnabled then
+                  obj.Transparency = 0.5
+                  obj.CanCollide = false
+               else
+                  obj.Transparency = 0
+                  obj.CanCollide = true
+               end
+            end
+         end
+      end
+   end,
+})
+
+Rayfield:Notify({Title = "JANI HUB", Content = "Script Loaded Successfully!", Duration = 5})
