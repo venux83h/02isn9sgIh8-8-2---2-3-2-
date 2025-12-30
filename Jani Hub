@@ -120,6 +120,7 @@ local function UpdateESP()
                 highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                 highlight.FillColor = Color3.fromRGB(255, 0, 0)
                 highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                highlight.FillTransparency = 1
             else
                 if v.Character and v.Character:FindFirstChild("JaniHighlight") then
                     v.Character.JaniHighlight:Destroy()
