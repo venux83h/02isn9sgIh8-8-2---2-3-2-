@@ -3,9 +3,9 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
    Name = "JANI HUB",
    LoadingTitle = "👑JANI HUB👑",
-   LoadingSubtitle = "by ??? and Larky",
+   LoadingSubtitle = "by Unknown and Larky",
    ConfigurationSaving = { Enabled = false },
-   KeySystem = true, -- Set this to true to use their Key System
+   KeySystem = true,
    KeySettings = {
       Title = "JANI HUB | Key System",
       Subtitle = "Key System",
@@ -13,7 +13,7 @@ local Window = Rayfield:CreateWindow({
       FileName = "JaniHubKey",
       SaveKey = true,
       GrabKeyFromSite = false,
-      Key = {"FLICKHACK"} -- Your Key
+      Key = {"FLICKHACK"}
    }
 })
 
@@ -26,14 +26,14 @@ local Camera = workspace.CurrentCamera
 local AimbotEnabled = false
 local EspEnabled = false
 local TeamCheck = false
-local InvWallsEnabled = false
 local FOVRadius = 150
 
--- Create FOV Circle
+-- Create FOV Circle (Fixed "White Everything" issue)
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Thickness = 1
 FOVCircle.Color = Color3.fromRGB(255, 255, 255)
-FOVCircle.Transparency = 1
+FOVCircle.Transparency = 0.5
+FOVCircle.Filled = false -- Ensure it's not a solid circle
 FOVCircle.Visible = false
 
 -- --- Functions ---
@@ -54,13 +54,20 @@ local function GetClosestPlayer()
     local ScreenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
     for _, v in pairs(Players:GetPlayers()) do
-        if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("Head") and v.Character.Humanoid.Health > 0 then
+        if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("Head") and v.Character:FindFirstChild("Humanoid") and v.Character.Humanoid.Health > 0 then
             if TeamCheck and v.Team == LocalPlayer.Team then continue end
+            
             local ScreenPoint, OnScreen = Camera:WorldToScreenPoint(v.Character.Head.Position)
             if OnScreen then
                 local VectorDistance = (ScreenCenter - Vector2.new(ScreenPoint.X, ScreenPoint.Y)).Magnitude
                 if VectorDistance < MaximumDistance then
-                    if IsVisible(v.Character.Head) then
+                    -- If TeamCheck is on, we also check if they are behind a wall
+                    if TeamCheck then
+                        if IsVisible(v.Character.Head) then
+                            Target = v
+                            MaximumDistance = VectorDistance
+                        end
+                    else
                         Target = v
                         MaximumDistance = VectorDistance
                     end
@@ -134,7 +141,7 @@ MainTab:CreateSlider({
 })
 
 MainTab:CreateToggle({
-   Name = "Team Check",
+   Name = "Team Check / Wall Check",
    CurrentValue = false,
    Callback = function(Value) TeamCheck = Value end,
 })
@@ -146,16 +153,17 @@ VisualTab:CreateToggle({
 })
 
 VisualTab:CreateToggle({
-   Name = "Inv Walls (See/Walk Through)",
+   Name = "Inv Walls (Safe Mode)",
    CurrentValue = false,
    Callback = function(Value)
-      InvWallsEnabled = Value
       for _, obj in pairs(workspace:GetDescendants()) do
          if obj:IsA("BasePart") and not obj:IsA("Terrain") then
-            -- Protect the floor/ground based on common names
             local name = obj.Name:lower()
-            if name ~= "baseplate" and name ~= "floor" and name ~= "ground" then
-               if InvWallsEnabled then
+            -- SAFE CHECK: If it's flat and wide, it's a floor. Don't disable it.
+            local isFloor = (obj.Size.Y < 2 and (obj.Size.X > 10 or obj.Size.Z > 10))
+            
+            if not isFloor and name ~= "baseplate" and name ~= "floor" and name ~= "ground" then
+               if Value then
                   obj.Transparency = 0.5
                   obj.CanCollide = false
                else
@@ -168,4 +176,4 @@ VisualTab:CreateToggle({
    end,
 })
 
-Rayfield:Notify({Title = "JANI HUB", Content = "Script Loaded Successfully!", Duration = 5})
+Rayfield:Notify({Title = "JANI HUB", Content = "Script Loaded! Key: FLICKHACK", Duration = 5})
