@@ -140,7 +140,6 @@ local function UpdateESP()
                     Text.TextColor3 = Color3.fromRGB(255, 255, 255)
                     Text.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
                     Text.TextStrokeTransparency = 0
-                    Text.TextScaled = true
                     Text.Font = Enum.Font.GothamBold
                     Text.Parent = Billboard
                 end
