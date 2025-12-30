@@ -1,5 +1,7 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
 local Window = Rayfield:CreateWindow({
    Name = "JANI HUB",
    LoadingTitle = "👑JANI HUB👑",
@@ -28,24 +30,29 @@ local EspEnabled = false
 local TeamCheck = false
 local FOVRadius = 150
 
--- Create FOV Circle (Fixed "White Everything" issue)
+-- Create FOV Circle
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Thickness = 1
 FOVCircle.Color = Color3.fromRGB(255, 255, 255)
-FOVCircle.Transparency = 0.5
-FOVCircle.Filled = false -- Ensure it's not a solid circle
+FOVCircle.Transparency = 1
+FOVCircle.Filled = false
 FOVCircle.Visible = false
 
--- --- Functions ---
+-- --- Helper Functions ---
 
+-- Checks if there is a wall between you and the target
 local function IsVisible(TargetPart)
-    if not LocalPlayer.Character then return false end
+    local Character = LocalPlayer.Character
+    if not Character then return false end
+    
     local Params = RaycastParams.new()
     Params.FilterType = Enum.RaycastFilterType.Exclude
-    Params.FilterDescendantsInstances = {LocalPlayer.Character, TargetPart.Parent}
+    Params.FilterDescendantsInstances = {Character, TargetPart.Parent} -- Ignore yourself and the target
+    
     local Direction = (TargetPart.Position - Camera.CFrame.Position).Unit * (TargetPart.Position - Camera.CFrame.Position).Magnitude
-    local result = workspace:Raycast(Camera.CFrame.Position, Direction, Params)
-    return result == nil
+    local RaycastResult = workspace:Raycast(Camera.CFrame.Position, Direction, Params)
+    
+    return RaycastResult == nil -- If nil, nothing is in the way
 end
 
 local function GetClosestPlayer()
@@ -55,19 +62,18 @@ local function GetClosestPlayer()
 
     for _, v in pairs(Players:GetPlayers()) do
         if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("Head") and v.Character:FindFirstChild("Humanoid") and v.Character.Humanoid.Health > 0 then
+            
+            -- Team Check Logic
             if TeamCheck and v.Team == LocalPlayer.Team then continue end
             
             local ScreenPoint, OnScreen = Camera:WorldToScreenPoint(v.Character.Head.Position)
+            
             if OnScreen then
                 local VectorDistance = (ScreenCenter - Vector2.new(ScreenPoint.X, ScreenPoint.Y)).Magnitude
+                
+                -- Wall Check + FOV Check
                 if VectorDistance < MaximumDistance then
-                    -- If TeamCheck is on, we also check if they are behind a wall
-                    if TeamCheck then
-                        if IsVisible(v.Character.Head) then
-                            Target = v
-                            MaximumDistance = VectorDistance
-                        end
-                    else
+                    if IsVisible(v.Character.Head) then
                         Target = v
                         MaximumDistance = VectorDistance
                     end
@@ -80,6 +86,7 @@ end
 
 -- --- Main Loops ---
 
+-- Aimbot & FOV Loop
 RunService.RenderStepped:Connect(function()
     FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     FOVCircle.Radius = FOVRadius
@@ -93,16 +100,18 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- ESP Function
+-- ESP Function (Re-written to be more aggressive)
 local function UpdateESP()
     for _, v in pairs(Players:GetPlayers()) do
-        if v ~= LocalPlayer and v.Character then
-            local highlight = v.Character:FindFirstChild("JaniHighlight")
-            if EspEnabled then
+        if v ~= LocalPlayer then
+            if v.Character and v.Character:FindFirstChild("HumanoidRootPart") and EspEnabled then
+                -- Skip teammates if TeamCheck is on
                 if TeamCheck and v.Team == LocalPlayer.Team then
-                    if highlight then highlight:Destroy() end
+                    if v.Character:FindFirstChild("JaniHighlight") then v.Character.JaniHighlight:Destroy() end
                     continue
                 end
+
+                local highlight = v.Character:FindFirstChild("JaniHighlight")
                 if not highlight then
                     highlight = Instance.new("Highlight")
                     highlight.Name = "JaniHighlight"
@@ -110,21 +119,26 @@ local function UpdateESP()
                 end
                 highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                 highlight.FillColor = Color3.fromRGB(255, 0, 0)
-            elseif highlight then
-                highlight:Destroy()
+                highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+            else
+                if v.Character and v.Character:FindFirstChild("JaniHighlight") then
+                    v.Character.JaniHighlight:Destroy()
+                end
             end
         end
     end
 end
 
+-- Fast loop for ESP updates
 task.spawn(function()
-    while task.wait(0.5) do UpdateESP() end
+    while task.wait(0.1) do
+        UpdateESP()
+    end
 end)
 
 -- --- UI Tabs ---
 
-local MainTab = Window:CreateTab("Combat", 4483362458)
-local VisualTab = Window:CreateTab("Visuals & World", 4483362458)
+local MainTab = Window:CreateTab("Main Hub", 4483362458)
 
 MainTab:CreateToggle({
    Name = "Enable Aimbot",
@@ -135,9 +149,18 @@ MainTab:CreateToggle({
 MainTab:CreateSlider({
    Name = "FOV Size",
    Range = {0, 800},
-   Increment = 10,
+   Increment = 5,
    CurrentValue = 150,
    Callback = function(Value) FOVRadius = Value end,
+})
+
+MainTab:CreateToggle({
+   Name = "ESP (Always On)",
+   CurrentValue = false,
+   Callback = function(Value) 
+      EspEnabled = Value 
+      UpdateESP()
+   end,
 })
 
 MainTab:CreateToggle({
@@ -145,35 +168,3 @@ MainTab:CreateToggle({
    CurrentValue = false,
    Callback = function(Value) TeamCheck = Value end,
 })
-
-VisualTab:CreateToggle({
-   Name = "ESP",
-   CurrentValue = false,
-   Callback = function(Value) EspEnabled = Value; UpdateESP() end,
-})
-
-VisualTab:CreateToggle({
-   Name = "Inv Walls (Safe Mode)",
-   CurrentValue = false,
-   Callback = function(Value)
-      for _, obj in pairs(workspace:GetDescendants()) do
-         if obj:IsA("BasePart") and not obj:IsA("Terrain") then
-            local name = obj.Name:lower()
-            -- SAFE CHECK: If it's flat and wide, it's a floor. Don't disable it.
-            local isFloor = (obj.Size.Y < 2 and (obj.Size.X > 10 or obj.Size.Z > 10))
-            
-            if not isFloor and name ~= "baseplate" and name ~= "floor" and name ~= "ground" then
-               if Value then
-                  obj.Transparency = 0.5
-                  obj.CanCollide = false
-               else
-                  obj.Transparency = 0
-                  obj.CanCollide = true
-               end
-            end
-         end
-      end
-   end,
-})
-
-Rayfield:Notify({Title = "JANI HUB", Content = "Script Loaded! Key: FLICKHACK", Duration = 5})
